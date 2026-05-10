@@ -10,6 +10,11 @@ Rules:
 - If the question cannot be answered with a SELECT query, return exactly: INVALID
 - Use table and column names exactly as shown in the schema above.
 - Use proper JOINs when data spans multiple tables.
+- Always use meaningful table aliases that are NOT PostgreSQL reserved words.
+  Use abbreviations like: cust, prod, ord, items, dlv — never use: do, as, in, is, on, to, by, at.
+- Always qualify column names with table alias when joining multiple tables.
+- Use double quotes around column or table names only if they contain special characters.
+
 
 Natural language query: {query}
 """.strip()
