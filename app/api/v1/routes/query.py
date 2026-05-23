@@ -17,7 +17,7 @@ limiter = Limiter(key_func=get_remote_address)
     summary="Convert natural language to SQL and return results",
     response_description="The generated SQL query and matching database rows.",
 )
-@limiter.limit("2/2hours") 
+@limiter.limit("5/2hours") 
 async def natural_query(
     request: Request,
     q: str = Query(..., min_length=3, description="Your question in plain English."),
