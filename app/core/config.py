@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     APP_ENV: str = "development"
     LOG_LEVEL: str = "INFO"
+    SCHEMA_CACHE_TTL: int = 3600
 
     ANALYTICS_API_URL: str
 
