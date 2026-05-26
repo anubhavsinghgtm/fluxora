@@ -26,7 +26,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-limiter = Limiter(key_func=get_remote_address)
+def get_session_id(request: Request) -> str:
+    """
+    Use X-Session-ID header for rate limiting if present.
+    Falls back to IP address if header is missing
+    (e.g. direct API calls without the header).
+    """
+    session_id = request.headers.get("X-Session-ID")
+    if session_id:
+        return session_id
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=get_session_id)
 
 
 @asynccontextmanager

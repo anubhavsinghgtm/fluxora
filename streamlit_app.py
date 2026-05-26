@@ -12,8 +12,16 @@ import os
 import requests
 import streamlit as st
 from dotenv import load_dotenv
+import uuid
 
 load_dotenv()
+
+
+
+# add this near the top after imports
+if "session_id" not in st.session_state:
+    st.session_state["session_id"] = str(uuid.uuid4())
+
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -197,6 +205,7 @@ if submit and query.strip():
             response = requests.get(
                 API_ENDPOINT,
                 params={"q": query.strip()},
+                headers={"X-Session-ID": st.session_state["session_id"]},
                 timeout=30,
             )
 
