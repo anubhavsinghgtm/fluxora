@@ -29,9 +29,12 @@ async def natural_query(
 
     **Example**: `?q=Show me the top 5 customers by total order amount`
     """
-    data = get_query_results(q, db)
+    sql, explanation, data, insights = get_query_results(q, db)
     return NaturalQueryResponse(
         status="success",
         data=data,
         count=len(data),
+        insight=insights,
+        explanation=explanation,
+        sql=sql,
     )

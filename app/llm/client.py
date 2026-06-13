@@ -5,6 +5,7 @@ from functools import lru_cache
 from app.core.config import get_settings
 
 
+
 @lru_cache
 def get_llm_client() -> genai.Client:
     settings = get_settings()
@@ -16,4 +17,5 @@ def get_generation_config() -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         temperature=settings.GEMINI_TEMPERATURE,
         max_output_tokens=settings.GEMINI_MAX_OUTPUT_TOKENS,
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
     )

@@ -209,11 +209,16 @@ if submit and query.strip():
                 timeout=30,
             )
 
+            st.write(f"Status code: {response.status_code}")
+            st.write(f"Raw response: {response.text[:500]}")
+
             if response.status_code == 200:
                 data = response.json()
                 results = data.get("data", [])
-                sql    = data.get("sql_query", "")
+                sql    = data.get("sql", "")
+                explanation = data.get("explanation", "")
                 count  = data.get("count", 0)
+                insight = data.get("insight", "")
 
                 # ── Metrics Row ───────────────────────────────────────────
                 m1, m2, m3 = st.columns(3)
@@ -254,6 +259,47 @@ if submit and query.strip():
                     unsafe_allow_html=True
                 )
 
+                # ── Explanation ─────────────────────────────────────────
+                if explanation:
+                    st.markdown(
+                        '<p class="section-header">Explanation</p>',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(f"""
+                    <div style='
+                        background-color: #1e2130;
+                        border-left: 3px solid #8892a4;
+                        border-radius: 6px;
+                        padding: 14px 16px;
+                        color: #cbd5e0;
+                        font-size: 14px;
+                        line-height: 1.5;
+                    '>
+                        🔍 {explanation}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # ── Insight ─────────────────────────────────────────
+                
+                if insight:
+                    st.markdown(
+                        '<p class="section-header">Insight</p>',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(f"""
+                    <div style='
+                        background-color: #1a2744;
+                        border-left: 3px solid #48bb78;
+                        border-radius: 6px;
+                        padding: 16px;
+                        color: #e2e8f0;
+                        font-size: 15px;
+                        line-height: 1.6;
+                    '>
+                        💡 {insight}
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 # ── Results Table ─────────────────────────────────────────
                 if results:
                     st.markdown(
@@ -293,11 +339,15 @@ if submit and query.strip():
                 </div>""", unsafe_allow_html=True)
 
             else:
-                detail = response.json().get("detail", "Unknown error")
-                st.markdown(f"""
-                <div class="error-box">
-                    ❌ Error {response.status_code}: {detail}
-                </div>""", unsafe_allow_html=True)
+                    try:
+                        detail = response.json().get("detail", "Unknown error")
+                    except Exception:
+                        detail = f"Unexpected response. Status: {response.status_code}. Body: '{response.text[:200]}'"
+
+                    st.markdown(f"""
+                    <div class="error-box">
+                        ❌ {detail}
+                    </div>""", unsafe_allow_html=True)
 
         except requests.exceptions.Timeout:
             st.markdown("""
