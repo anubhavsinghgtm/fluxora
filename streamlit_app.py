@@ -13,6 +13,7 @@ import requests
 import streamlit as st
 from dotenv import load_dotenv
 import uuid
+import pandas as pd
 
 load_dotenv()
 
@@ -209,8 +210,8 @@ if submit and query.strip():
                 timeout=30,
             )
 
-            st.write(f"Status code: {response.status_code}")
-            st.write(f"Raw response: {response.text[:500]}")
+            # st.write(f"Status code: {response.status_code}")
+            # st.write(f"Raw response: {response.text[:500]}")
 
             if response.status_code == 200:
                 data = response.json()
@@ -310,6 +311,17 @@ if submit and query.strip():
                         results,
                         use_container_width=True,
                         hide_index=True,
+                    )
+
+                    
+                    df  = pd.DataFrame(results)
+                    csv = df.to_csv(index=False)
+                    st.download_button(
+                        label="⬇️ Export as CSV",
+                        data=csv,
+                        file_name="query_results.csv",
+                        mime="text/csv",
+                        use_container_width=True,
                     )
                 else:
                     st.markdown("""

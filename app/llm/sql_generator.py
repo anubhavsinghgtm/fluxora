@@ -2,6 +2,14 @@ import logging
 import re
 from google.api_core import exceptions as google_exceptions
 from sqlalchemy.orm import Session
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
+
 
 from app.core.config import get_settings
 from app.core.exceptions import (
@@ -58,16 +66,10 @@ def _validate_sql(sql: str) -> bool:
     return True
 
 
-def generate_sql_from_english(query: str, db: Session) -> tuple[str, str]:
+def _call_llm(prompt: str) -> str:
     settings = get_settings()
     client = get_llm_client()
     config = get_generation_config()
-
-    schema_rows = get_schema_info(db)
-    schema_str = format_schema_for_prompt(schema_rows)
-    prompt = build_sql_prompt(query=query, schema=schema_str)
-
-    logger.debug("Generated prompt for LLM: %s", prompt)  # Log the full prompt at debug level
 
     try:
         response = client.models.generate_content(
@@ -75,6 +77,7 @@ def generate_sql_from_english(query: str, db: Session) -> tuple[str, str]:
             contents=prompt,
             config=config,
         )
+        return response.text or ""
     except google_exceptions.ResourceExhausted as e:
         logger.error("Gemini quota exhausted: %s", e)
         raise LLMQuotaExceededException("LLM quota exhausted.") from e
@@ -82,8 +85,26 @@ def generate_sql_from_english(query: str, db: Session) -> tuple[str, str]:
         logger.error("Gemini call failed: %s", e)
         raise LLMException(f"LLM call failed: {e}") from e
 
-    
-    raw_sql = response.text or ""
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((LLMException)),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+
+def _call_llm_with_retry(prompt: str) -> None:
+    return _call_llm(prompt)
+
+def generate_sql_from_english(query: str, db: Session) -> tuple[str, str]:
+    """
+    Generates a SQL query from an English question.
+    """
+    schema_rows = get_schema_info(db)
+    schema_str = format_schema_for_prompt(schema_rows)
+    prompt = build_sql_prompt(query=query, schema=schema_str)
+
+    raw_sql = _call_llm_with_retry(prompt)  # Call the LLM with retry logic
     logger.debug("Raw SQL response from LLM: %s", raw_sql)  # Log the raw response at debug level
 
     sql, explanation = _parse_llm_response(raw_sql)
@@ -94,4 +115,22 @@ def generate_sql_from_english(query: str, db: Session) -> tuple[str, str]:
             f"Could not generate a valid SELECT query for: '{query}'"
         )
 
-    return sql, explanation
+    ## attempt 2
+    logger.warning("Attempting to generate SQL again due to invalid output.")
+    correction_prompt = build_sql_prompt(
+        query=f"IMPORTANT: Return ONLY a SELECT query. Do not use reserved words as aliases. {query}",
+        schema=schema_str,
+    )
+    raw_sql = _call_llm_with_retry(correction_prompt)  # Call the LLM with the correction prompt
+    logger.debug("Raw SQL response from LLM (second attempt): %s", raw_sql)  # Log the raw response at debug level
+
+    sql, explanation = _parse_llm_response(raw_sql)
+    sql = _extract_sql(sql)
+
+    if _validate_sql(sql):
+        return sql, explanation
+
+    logger.error("Failed to generate valid SQL after correction attempt for query: %s", query)
+    raise InvalidSQLGeneratedException(
+        f"Could not generate a valid SELECT query for: '{query}'"
+    )
