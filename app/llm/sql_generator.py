@@ -39,6 +39,9 @@ def _parse_llm_response(raw_response: str) -> tuple[str, str]:
     Returns:
         A tuple of (sql, explanation)
     """
+    if not raw_response.strip():   
+        return "", ""
+
     sql_match = re.search(r"SQL:\s*(.+)\s*Explanation:|$", raw_response, re.IGNORECASE | re.DOTALL)
     explanation_match = re.search(r"Explanation:\s*(.+)", raw_response, re.IGNORECASE | re.DOTALL)
 

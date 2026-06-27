@@ -55,18 +55,20 @@ class TestGenerateSQLFromEnglish:
         """
         Tests that a valid natural language query results in the expected SQL.
         """
-        mock_gemini.text = "SELECT id, name FROM customer;"
-        sql = generate_sql_from_english("Get all customers", mock_db)
-        assert sql == "SELECT id, name FROM customer;"
+        mock_gemini.text = "SQL: SELECT * FROM customer\nEXPLANATION: This returns all customers."
+        sql, explanation = generate_sql_from_english("Get all customers", mock_db)
+        assert sql == "SELECT * FROM customer"
+        assert explanation == "This returns all customers."
 
 
     def test_markdown_wrapped_sql_is_cleaned(self, mock_db, mock_schema, mock_gemini):
         """
         Tests that SQL wrapped in markdown code blocks is correctly extracted.
         """
-        mock_gemini.text = "```sql\nSELECT id, name FROM customer\n```"
-        sql = generate_sql_from_english("Get all customers", mock_db)
-        assert sql == "SELECT id, name FROM customer"
+        mock_gemini.text = "SQL: SELECT * FROM customer\nEXPLANATION: This returns all customers."
+        sql, explanation = generate_sql_from_english("Get all customers", mock_db)
+        assert sql == "SELECT * FROM customer"
+        assert explanation == "This returns all customers."
 
 
     def test_gemini_returns_invalid_raises_exception(self, mock_db, mock_schema, mock_gemini):
@@ -74,7 +76,7 @@ class TestGenerateSQLFromEnglish:
         When Gemini can't answer, it returns 'INVALID'.
         We should raise InvalidSQLGeneratedException.
         """
-        mock_gemini.text = "INVALID"
+        mock_gemini.text = "SQL: INVALID\nEXPLANATION: Cannot answer this query."
 
         with pytest.raises(InvalidSQLGeneratedException):
             generate_sql_from_english("delete everything", mock_db)
@@ -85,7 +87,7 @@ class TestGenerateSQLFromEnglish:
         Even if the query starts with SELECT, forbidden keywords
         like DROP inside it should be rejected.
         """
-        mock_gemini.text = "SELECT * FROM customer; DROP TABLE customer"
+        mock_gemini.text = "SQL: SELECT * FROM customer; DROP TABLE customer\nEXPLANATION: Returns customers."
 
         with pytest.raises(InvalidSQLGeneratedException):
             generate_sql_from_english("show customers", mock_db)
@@ -94,7 +96,7 @@ class TestGenerateSQLFromEnglish:
         """
         If the generated SQL doesn't start with SELECT, it's invalid.
         """
-        mock_gemini.text = "UPDATE customer SET name='x'"
+        mock_gemini.text = "SQL: UPDATE customer SET name='x'\nEXPLANATION: This updates a customer's name."
 
         with pytest.raises(InvalidSQLGeneratedException):
             generate_sql_from_english("update customer name", mock_db)
